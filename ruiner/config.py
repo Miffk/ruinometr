@@ -28,4 +28,4 @@ JAVA_BIN = os.environ.get("JAVA_BIN") or shutil.which("java")
 PARSER_JAVA_OPTS = os.environ.get("RUINER_PARSER_JAVA_OPTS", "-Xmx160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k")
 
 # Меняется при изменении логики разбора, чтобы не отдавать старый кэш.
-ANALYSIS_VERSION = 13
+ANALYSIS_VERSION = 14

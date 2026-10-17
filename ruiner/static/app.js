@@ -10,7 +10,7 @@ const TEAM = { radiant: "Силы Света", dire: "Силы Тьмы" };
 const VERDICT = { carried: ["good", "★ Тащил"], ok: ["neutral", "Норм"], questionable: ["warning", "? Под вопросом"] };
 const ITEM_STATUS = { late: "позже про", on_time: "в тайминг", early: "раньше про", offmeta: "не как у про", alt: "другие сапоги", unknown: "нет данных" };
 
-const state = { report: null, open: new Set(), tab: {}, epFilter: "all" };
+const state = { report: null, open: new Set(), tab: {}, epFilter: "all", chatFilter: "all" };
 
 // ---------- тема ----------
 
@@ -376,9 +376,26 @@ function objectivesPanel(r) {
 }
 
 function chatPanel(r) {
-  return `<section class="panel"><div class="panel-head"><h2>Чат</h2></div><div class="feed">${r.chat.map((c) =>
-    `<div class="feed-row ${c.team || ""}"><span class="t">${c.time_fmt}</span><span><span class="who">${esc(c.name)}</span>${c.hero ? ` <span class="muted">(${esc(c.hero)})</span>` : ""}
-      — ${c.kind === "wheel" ? '<span class="muted">фраза:</span> ' : ""}${esc(c.text)}</span></div>`).join("") || '<p class="muted">Чат пуст.</p>'}</div></section>`;
+  const f = state.chatFilter;
+  const channel = (c) => c.channel || "all";
+  const counts = { all: r.chat.length, everyone: r.chat.filter((c) => channel(c) === "all").length,
+    allies: r.chat.filter((c) => channel(c) === "allies").length };
+  const list = r.chat.filter((c) => f === "all" || (f === "allies" ? channel(c) === "allies" : channel(c) === "all"));
+  const row = (c) => {
+    const ally = channel(c) === "allies";
+    const tag = ally ? `<span class="pill ${c.team || "neutral"}">союзникам</span>` : '<span class="pill neutral">всем</span>';
+    return `<div class="feed-row ${c.team || ""}"><span class="t">${c.time_fmt}</span>
+      <span>${tag} <span class="who">${esc(c.name)}</span>${c.hero ? ` <span class="muted">(${esc(c.hero)})</span>` : ""}
+      — ${c.kind === "wheel" ? '<span class="muted">фраза:</span> ' : ""}${esc(c.text)}</span></div>`;
+  };
+  return `<section class="panel" id="sec-chat"><div class="panel-head"><div><h2>Чат</h2>
+    <p class="sub">Фразы из колеса чата видны все — и всем, и союзникам. Текстовые сообщения — только из общего чата:
+      то, что пишут союзникам вручную, Valve в реплей не записывает (реплей пишется глазами зрителя), поэтому этого не покажет ни один сайт.</p></div>
+    <div class="seg" data-chat>
+      <button data-v="all" class="${f === "all" ? "active" : ""}">Всё · ${counts.all}</button>
+      <button data-v="everyone" class="${f === "everyone" ? "active" : ""}">Всем · ${counts.everyone}</button>
+      <button data-v="allies" class="${f === "allies" ? "active" : ""}">Союзникам · ${counts.allies}</button></div></div>
+    <div class="feed">${list.map(row).join("") || '<p class="muted">Пусто.</p>'}</div></section>`;
 }
 
 function notesPanel(r) {
@@ -405,6 +422,10 @@ function bind() {
   }));
   document.querySelectorAll("[data-ep] button").forEach((b) => b.addEventListener("click", () => {
     state.epFilter = b.dataset.v;
+    render();
+  }));
+  document.querySelectorAll("[data-chat] button").forEach((b) => b.addEventListener("click", () => {
+    state.chatFilter = b.dataset.v;
     render();
   }));
   document.querySelectorAll("[data-open]").forEach((a) => a.addEventListener("click", () => {

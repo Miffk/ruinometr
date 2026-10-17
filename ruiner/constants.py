@@ -11,6 +11,13 @@ EXTRA_KEY_ITEMS = {"blink", "aghanims_shard", "tranquil_boots", "arcane_boots", 
 # дороже (Dragon Lance, Yasha, Kaya) — считаем: это заметный шаг сборки.
 INTERMEDIATE_MIN_COST = 1800
 
+# Фразы, у которых в справочнике OpenDota вместо текста служебный ключ.
+CHAT_WHEEL_RU = {
+    "MissingHero": "Вражеский герой пропал!",
+    "ReturnedHero": "Вражеский герой вернулся",
+    "Day_Night_Cycle": "Смена дня и ночи",
+}
+
 RANK_NAMES = ["Рекрут", "Страж", "Рыцарь", "Герой", "Легенда", "Властелин", "Божество", "Титан"]
 
 
@@ -129,8 +136,19 @@ class Constants:
     def chat_wheel_text(self, key: str) -> str:
         entry = self.chat_wheel.get(str(key))
         if not entry:
-            return "фраза из колеса"
-        return entry.get("message") or entry.get("label") or entry.get("name") or "фраза из колеса"
+            # Таких id нет в справочнике: это реплики героев и звуки из колеса — текста у них нет.
+            return "реплика героя или звук из колеса"
+        message = entry.get("message") or ""
+        if message.startswith("dota_chatwheel_"):
+            return CHAT_WHEEL_RU.get(entry.get("name"), entry.get("name", "").replace("_", " "))
+        return message or entry.get("label") or entry.get("name") or "фраза из колеса"
+
+    def chat_wheel_channel(self, key: str) -> str:
+        """Кому ушла фраза: обычные фразы колеса — союзникам, с флагом all_chat, реплики героев и звуки — всем."""
+        entry = self.chat_wheel.get(str(key))
+        if not entry or entry.get("all_chat"):
+            return "all"
+        return "allies"
 
 
 def rank_name(rank_tier: float | None) -> str | None:

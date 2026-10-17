@@ -77,13 +77,16 @@ def _chat(match: dict, ctx_by_slot: dict, consts: Constants) -> list[dict]:
     out = []
     for c in match.get("chat") or []:
         ctx = ctx_by_slot.get(c.get("player_slot"))
+        # Текст в реплее есть только из общего чата: союзникам вручную — Valve не записывает.
+        # Фразы колеса записываются все, а кому ушла — видно по справочнику.
         if c.get("type") == "chat":
-            text, kind = c.get("key", ""), "all"
+            text, kind, channel = c.get("key", ""), "text", "all"
         elif c.get("type") == "chatwheel":
-            text, kind = consts.chat_wheel_text(c.get("key")), "wheel"
+            text, kind, channel = consts.chat_wheel_text(c.get("key")), "wheel", consts.chat_wheel_channel(c.get("key"))
         else:
             continue
-        out.append({"time": int(c.get("time", 0)), "time_fmt": fmt_time(c.get("time", 0)), "kind": kind, "text": text,
+        out.append({"time": int(c.get("time", 0)), "time_fmt": fmt_time(c.get("time", 0)), "kind": kind,
+                    "channel": channel, "text": text,
                     "name": ctx["name"] if ctx else c.get("unit"), "hero": ctx["hero"] if ctx else None,
                     "team": ctx["team"] if ctx else None})
     return out
