@@ -238,6 +238,7 @@ def build_report(match: dict, consts: Constants, metas: dict[int, dict | None], 
             "lane": c["lane"], "lane_opponent": c["opp_hero"], "fights": c["fights"],
             "score": c["score"], "team_median": c["team_median"], "verdict": c["verdict"],
             "verdict_label": c["verdict_label"], "confidence": c["confidence"], "is_mvp": c is mvp,
+            "margin": c["margin"], "bad_episodes": c["bad_episodes"],
             "components": c["components"], "reasons": reasons[:6],
             "items": c["items"],
             "final_items": [consts.item_ref(key) for key in

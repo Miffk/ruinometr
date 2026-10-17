@@ -185,6 +185,12 @@ def assign_verdicts(ctxs: list[dict]) -> None:
                 margin = max(20 - s, gap - QUESTION_GAP)
             else:
                 c["verdict"] = "ok"
-                margin = min(abs(gap - QUESTION_GAP), abs(68 - s))
+                # Насколько далеко до смены вердикта — только по порогам, которые реально достижимы.
+                # «Под вопрос» нужны оба условия: 10+ ниже медианы И (вклад < 45 или 2+ спорных эпизода).
+                second = 0 if (s < 45 or bad >= 2) else min(s - 44, 8 if bad == 1 else 99)
+                to_question = max(QUESTION_GAP - gap, second)
+                to_carried = max(68 - s, 12 - (s - med)) if s == top else 99
+                margin = min(to_question, to_carried, s - 20)
             c["verdict_label"] = VERDICTS[c["verdict"]]
             c["confidence"] = _confidence(margin)
+            c["margin"] = round(margin, 1)

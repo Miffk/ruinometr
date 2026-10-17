@@ -172,10 +172,57 @@ function playersPanel(r) {
   };
   return `<section class="panel" id="sec-players">
     <div class="panel-head"><div><h2>Игроки</h2>
-      <p class="sub">Вклад 0–100 — насколько игрок сыграл относительно нормы своего героя и позиции${r.mode && r.mode.key === "turbo"
-        ? " <b>в турбо</b>: GPM, урон, добивания и смерти сравниваются с турбо-игроками на этом герое и ранге, а не с обычными играми" : ""}. Засечка на шкале — медиана остальных игроков команды.
-        Нажмите на строку: из чего сложилась оценка, закуп и прокачка против про.</p></div></div>
+      <p class="sub">Оценка 0–100 — как игрок сыграл по сравнению с другими игроками на том же герое и позиции${r.mode && r.mode.key === "turbo"
+        ? " <b>в турбо</b> (сравниваем только с турбо-играми)" : ""}. Чёрточка на полоске — средняя оценка его команды.
+        Нажмите на игрока, чтобы увидеть подробности: из чего оценка, что купил и как качался.</p></div></div>
+    ${verdictLegend()}
     ${block("radiant")}${block("dire")}</section>`;
+}
+
+const plural = (n, one, few, many) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return `${n} ${a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many}`;
+};
+
+// Почему такой вердикт — простыми словами (сами правила — в ruiner/analysis/scoring.py, assign_verdicts).
+function verdictWhy(p) {
+  const s = p.score, avg = Math.round(p.team_median), bad = p.bad_episodes ?? 0;
+  const mates = state.report.players.filter((o) => o.team === p.team && o.slot !== p.slot);
+  const best = mates.reduce((a, o) => (o.score > (a ? a.score : -1) ? o : a), null);
+  const own = `Оценка ${s} из 100, у остальных в команде — около ${avg}.`;
+  let why;
+  if (p.verdict === "carried") {
+    why = `${own} Лучшая оценка в своей команде, с заметным отрывом.`;
+  } else if (p.verdict === "questionable") {
+    why = s < 20 ? `${own} Очень низкая оценка.`
+      : `${own} Заметно слабее, чем у своих` + (s < 45 ? ", и сама оценка низкая." : `, и есть спорные моменты (${bad}).`) +
+        " Это повод посмотреть эпизоды игрока, а не приговор.";
+  } else if (s >= 68 && best && best.score > s) {
+    why = s >= avg
+      ? `${own} Хорошая игра, но у ${best.hero} ещё лучше (${best.score}), а «Тащил» — только один на команду.`
+      : `${own} Хорошая оценка, просто команда в целом сыграла ещё сильнее (лучший — ${best.hero}, ${best.score}).`;
+  } else if (s >= 68) {
+    why = `${own} Лучшая оценка в команде, но отрыв от остальных слишком маленький для «Тащил».`;
+  } else if (avg - s >= 10) {
+    why = `${own} Чуть слабее, чем у своих, но сама оценка нормальная и спорных моментов почти нет.`;
+  } else {
+    why = `${own} Примерно на уровне остальных в своей команде.`;
+  }
+  const conf = { "почти наверняка": "всё однозначно", "вероятно": "скорее всего так", "похоже": "на грани, могло быть и по-другому" }[p.confidence];
+  return conf ? `${why} Уверенность «${p.confidence}» — ${conf}.` : why;
+}
+
+function verdictLegend() {
+  return `<div class="verdict-legend">
+    <div><span class="pill good">★ Тащил</span> лучшая игра в своей команде, с заметным отрывом</div>
+    <div><span class="pill neutral">Норм</span> на уровне остальных в своей команде</div>
+    <div><span class="pill warning">? Под вопросом</span> заметно слабее своих — повод посмотреть эпизоды игрока, а не приговор</div>
+    <div class="conf-row"><b>Подпись под оценкой</b> — насколько вердикт однозначный:
+      <span class="chip-conf">почти наверняка</span> — всё очевидно ·
+      <span class="chip-conf">вероятно</span> — скорее всего так ·
+      <span class="chip-conf">похоже</span> — на грани, могло быть и по-другому.
+      Наведите на оценку игрока, чтобы увидеть, почему так.</div>
+  </div>`;
 }
 
 function meterColor(v) {
@@ -195,7 +242,7 @@ function playerRow(p) {
           <div class="fill" style="width:${p.score}%;background:${meterColor(p.score)}"></div>
           <div class="tick" style="left:calc(${p.team_median}% - 1px)" title="Медиана команды: ${p.team_median}"></div></div>
         <span class="num">${p.score}</span></div></div>
-      <div class="verdict"><span class="pill ${cls}">${label}</span><span class="conf">${esc(p.confidence)}</span></div>
+      <div class="verdict" title="${esc(verdictWhy(p))}"><span class="pill ${cls}">${label}</span><span class="conf">${esc(p.confidence)}</span></div>
       <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
     </div>
     ${open ? playerDetails(p) : ""}`;
@@ -228,7 +275,7 @@ function scoreBlock(p) {
   const fights = p.fights ? `<div class="fact-line">Драки после 10:00: участвовал в ${p.fights.part} из ${p.fights.total}</div>` : "";
   return `<div class="cols">
     <div><div class="h3">Из чего сложился вклад</div>${comps}</div>
-    <div><div class="h3">Почему «${esc(p.verdict_label)}»</div>${reasons}
+    <div><div class="h3">Почему «${esc(p.verdict_label)}»</div><div class="fact-line">${esc(verdictWhy(p))}</div>${reasons}
       <div class="h3" style="margin-top:16px">Стадии</div>${lane}${fights}
       <div class="fact-line">Мёртв ${p.dead_fmt} (${p.dead_pct}% матча) · участие в убийствах ${p.kp}% · ${p.nw_share}% нетворса команды · ${p.dmg_share}% урона команды</div></div>
   </div>`;

@@ -296,6 +296,12 @@ table.tbl td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-
 table.tbl tr.team-row td { font-weight: 800; padding-top: 16px; border-top: 0; }
 
 /* ===== Игроки ===== */
+.verdict-legend { display: grid; gap: 8px; font-size: 13px; color: var(--text-2); background: var(--surface-2);
+  border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 16px; }
+.verdict-legend .pill { margin-right: 6px; }
+.verdict-legend .conf-row { padding-top: 8px; border-top: 1px solid var(--border); }
+.chip-conf { font-weight: 700; color: var(--text); }
+.verdict { cursor: help; }
 .team-block + .team-block { margin-top: 18px; }
 .team-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 10px; margin-bottom: 4px; font-weight: 800; }
 .team-head.radiant { background: var(--radiant-soft); color: var(--radiant); }
