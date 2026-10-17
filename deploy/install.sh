@@ -14,6 +14,15 @@ MEMORY_MAX="${MEMORY_MAX:-500M}"   # потолок памяти службы: �
 say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 [ "$(id -u)" -eq 0 ] || { echo "Запустите от root (sudo -i)"; exit 1; }
 
+# До любых изменений: хватит ли диска (своп 2 ГБ + Java + код ≈ 2.5 ГБ), чтобы не забить его соседям.
+free_mb="$(df -Pm / | awk 'NR==2 {print $4}')"
+need_mb=3000
+[ "$(swapon --show --noheadings | wc -l)" -gt 0 ] && need_mb=1000
+if [ "$free_mb" -lt "$need_mb" ]; then
+  echo "На диске свободно ${free_mb} МБ, нужно хотя бы ${need_mb} МБ. Ничего не меняю."
+  exit 1
+fi
+
 say "Своп"
 if [ "$(swapon --show --noheadings | wc -l)" -eq 0 ]; then
   fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
@@ -29,7 +38,7 @@ sysctl -q vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/90-ruinome
 say "Пакеты: git, Python, Java 21"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q git curl python3 python3-venv python3-pip ca-certificates
+apt-get install -y -q git curl sudo iproute2 python3 python3-venv python3-pip ca-certificates
 if ! apt-get install -y -q openjdk-21-jdk-headless; then
   echo "openjdk-21 не нашлась в репозиториях — разбор пойдёт без своего парсера реплеев (без AFK и карты)."
 fi
