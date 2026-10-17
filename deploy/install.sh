@@ -57,6 +57,10 @@ say "Python-окружение"
 sudo -u "$APP_USER" python3 -m venv "$APP_DIR/.venv"
 sudo -u "$APP_USER" "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
 sudo -u "$APP_USER" "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/requirements.txt"
+# Реплеи сжаты zstd: в Python 3.14 модуль встроен, но сборка дистрибутива может быть без него — тогда пакет.
+if ! "$APP_DIR/.venv/bin/python" -c "import compression.zstd" 2>/dev/null; then
+  sudo -u "$APP_USER" "$APP_DIR/.venv/bin/pip" install -q zstandard
+fi
 
 if command -v javac >/dev/null 2>&1; then
   say "Сборка парсера реплеев (пара минут)"
