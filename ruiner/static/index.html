@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ruiner — разбор матча Dota 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="logo"><span class="logo-mark">R</span><span class="word">RUINER<b>?</b></span></a>
+    <form id="search" class="search" role="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="query" type="text" placeholder="ID матча или ссылка Dotabuff / OpenDota / Stratz" autocomplete="off" aria-label="ID матча">
+      <button type="submit" class="btn">Разобрать</button>
+    </form>
+    <button id="theme-toggle" class="icon-btn" type="button" aria-label="Сменить тему"></button>
+  </header>
+
+  <main id="app">
+    <section id="home" class="home">
+      <span class="eyebrow">Разбор по реплею</span>
+      <h1>Что пошло не так в катке?</h1>
+      <p class="lead">Вставь ID матча Dota 2 — получишь линию, смерти, драки, вклад каждого относительно нормы позиции,
+        закуп и прокачку в сравнении с про-игроками, AFK и карту матча с проигрыванием.</p>
+      <form id="home-search" class="home-search">
+        <input id="home-query" type="text" placeholder="Например, 9046870406 или ссылка на матч" autocomplete="off" aria-label="ID матча">
+        <button type="submit" class="btn">Разобрать</button>
+      </form>
+      <div class="examples">Пример: <a href="/match/9046870406">9046870406</a> · <a href="/match/9047369887">9047369887</a></div>
+      <div class="features">
+        <div class="feature"><div class="ico">⚖️</div><h3>Руинометр</h3><p>Вклад 0–100 относительно нормы героя и позиции — и объяснение, из чего он сложился.</p></div>
+        <div class="feature"><div class="ico">🛒</div><h3>Закуп против про</h3><p>Тайминги предметов, ответ на вражеский пик и прокачка в сравнении со свежими матчами лиг.</p></div>
+        <div class="feature"><div class="ico">🗺️</div><h3>Карта и поряда</h3><p>Проигрывание матча по секундам, AFK по приказам, деньги в кармане и пропущенные байбеки.</p></div>
+      </div>
+    </section>
+
+    <section id="status" class="status" hidden>
+      <div class="status-msg" id="status-msg">Загрузка…</div>
+      <div class="bar"><div id="status-bar"></div></div>
+      <p class="muted" id="status-hint">Первый разбор занимает пару минут: скачиваем реплей и про-матчи. Повторно — мгновенно, всё кэшируется.</p>
+    </section>
+
+    <section id="match" hidden></section>
+  </main>
+
+  <script src="/static/map.js"></script>
+  <script src="/static/chart.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

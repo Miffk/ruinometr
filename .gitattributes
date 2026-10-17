@@ -1,0 +1,7 @@
+* text=auto
+# Скрипты для Linux/macOS должны остаться с LF, иначе sh их не запустит.
+*.sh text eol=lf
+parser/mvnw text eol=lf
+# Батники Windows — с CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

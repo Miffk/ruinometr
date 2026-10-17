@@ -1,0 +1,16 @@
+# Окружение и сборка
+.venv/
+__pycache__/
+*.pyc
+parser/target/
+parser/dependency-reduced-pom.xml
+tools/
+
+# Кэш матчей, реплеи и отчёты (там ники игроков) — у каждого свой
+data/
+
+# Локальные настройки редактора/агента
+.claude/
+.vscode/
+.idea/
+*.log
