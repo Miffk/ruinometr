@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -5,18 +6,31 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import CACHE_DIR, OPENDOTA_API_KEY, OPENDOTA_MIN_INTERVAL
+from .cleanup import cleanup
+from .config import (CACHE_DIR, CACHE_MAX_AGE_DAYS, CACHE_MAX_MB, DATA_DIR, OPENDOTA_API_KEY,
+                     OPENDOTA_MIN_INTERVAL)
 from .opendota import OpenDota
 from .service import AnalysisService, extract_match_id
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
+CLEANUP_EVERY_SECONDS = 6 * 3600
+
+
+async def _cleanup_loop():
+    while True:
+        await asyncio.to_thread(cleanup, DATA_DIR, CACHE_MAX_AGE_DAYS, CACHE_MAX_MB)
+        await asyncio.sleep(CLEANUP_EVERY_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     od = OpenDota(CACHE_DIR, OPENDOTA_API_KEY, OPENDOTA_MIN_INTERVAL)
     app.state.service = AnalysisService(od)
+    cleaner = asyncio.create_task(_cleanup_loop())
     yield
+    cleaner.cancel()
     await od.close()
 
 

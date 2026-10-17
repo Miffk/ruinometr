@@ -2,12 +2,13 @@
 
 import asyncio
 import json
+import os
 import shutil
 from pathlib import Path
 
 import httpx
 
-from .config import JAVA_BIN, PARSER_JAR, REPLAY_DIR
+from .config import JAVA_BIN, PARSER_JAR, PARSER_JAVA_OPTS, REPLAY_DIR
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 BZ2_MAGIC = b"BZh"
@@ -26,6 +27,23 @@ def parser_status() -> str | None:
     if not PARSER_JAR.exists():
         return "парсер не собран — запустите run.bat или mvn package в папке parser"
     return None
+
+
+_lock: asyncio.Lock | None = None
+
+
+def _parse_lock() -> asyncio.Lock:
+    global _lock
+    if _lock is None:
+        _lock = asyncio.Lock()
+    return _lock
+
+
+def _parser_command(dem: Path, out: Path) -> list[str]:
+    """java с лимитом памяти; на Linux — с низким приоритетом, чтобы не мешать другим сервисам."""
+    cmd = [JAVA_BIN, *PARSER_JAVA_OPTS.split(), "-jar", str(PARSER_JAR), "parse", str(dem), str(out)]
+    nice = shutil.which("nice")
+    return [nice, "-n", "15", *cmd] if nice and os.name == "posix" else cmd
 
 
 def _decompress(src: Path, dst: Path) -> None:
@@ -52,17 +70,30 @@ def _decompress(src: Path, dst: Path) -> None:
     tmp.replace(dst)
 
 
+DOWNLOAD_ATTEMPTS = 3
+
+
 async def _download(url: str, dst: Path) -> None:
+    """Скачать реплей; при обрыве соединения — ещё попытки. Недокачанный файл не оставляем."""
     tmp = dst.with_suffix(".part")
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30, read=120), follow_redirects=True) as client:
-        async with client.stream("GET", url) as r:
-            if r.status_code == 404:
-                raise ReplayUnavailable("реплея уже нет на серверах Valve (хранятся ограниченное время)")
-            r.raise_for_status()
-            with tmp.open("wb") as f:
-                async for chunk in r.aiter_bytes(1 << 20):
-                    f.write(chunk)
-    tmp.replace(dst)
+    last = None
+    for attempt in range(DOWNLOAD_ATTEMPTS):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30, read=120), follow_redirects=True) as client:
+                async with client.stream("GET", url) as r:
+                    if r.status_code == 404:
+                        raise ReplayUnavailable("реплея уже нет на серверах Valve (хранятся ограниченное время)")
+                    r.raise_for_status()
+                    with tmp.open("wb") as f:
+                        async for chunk in r.aiter_bytes(1 << 20):
+                            f.write(chunk)
+            tmp.replace(dst)
+            return
+        except httpx.HTTPError as e:
+            last = e
+            tmp.unlink(missing_ok=True)
+            await asyncio.sleep(2 * (attempt + 1))
+    raise ReplayUnavailable(f"не удалось скачать реплей: {type(last).__name__} {last}".strip())
 
 
 async def parse_replay(match: dict, progress=None) -> dict:
@@ -93,12 +124,16 @@ async def parse_replay(match: dict, progress=None) -> dict:
                 progress("Распаковываем реплей")
             await asyncio.to_thread(_decompress, packed, dem)
         if progress:
-            progress("Разбираем реплей своим парсером")
-        proc = await asyncio.create_subprocess_exec(
-            JAVA_BIN, "-jar", str(PARSER_JAR), "parse", str(dem), str(parsed_path),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
-        _, err = await proc.communicate()
+            progress("Ждём очереди на разбор реплея" if _parse_lock().locked() else "Разбираем реплей своим парсером")
+        # Один разбор за раз: на слабом сервере два JVM одновременно не влезут в память.
+        async with _parse_lock():
+            if progress:
+                progress("Разбираем реплей своим парсером")
+            proc = await asyncio.create_subprocess_exec(
+                *_parser_command(dem, parsed_path),
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            )
+            _, err = await proc.communicate()
         if proc.returncode != 0:
             tail = err.decode("utf-8", "replace").strip().splitlines()[-3:]
             raise ReplayUnavailable("парсер упал: " + " | ".join(tail))
