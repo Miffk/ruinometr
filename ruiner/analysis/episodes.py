@@ -6,6 +6,7 @@ from .core import (CORE_POSITIONS, death_times, fights_after, fmt_time, in_any_f
 
 
 from .counters import counter_episodes, team_episodes
+from .positioning import FIGHT_NEAR, episodes as positioning_episodes
 from .replay_signals import signal_episodes
 from .skills import skill_episodes
 
@@ -82,8 +83,9 @@ def death_episodes(ctx, team_ctxs, match, duration) -> list[dict]:
                        f"{plural(p.get('kills', 0), 'убийство', 'убийства', 'убийств')} и "
                        f"{plural(p.get('assists', 0), 'ассист', 'ассиста', 'ассистов')}", "disputed", end=late[-1]))
 
+    # С треками из реплея «в соло» считается точнее — по союзникам рядом (positioning.py).
     solo = [t for t in deaths if t >= mode.P.lane_end and not in_any_fight(match, t)]
-    if len(solo) >= 3:
+    if len(solo) >= 3 and not (ctx.get("positioning") or {}).get("available"):
         out.append(_ep(ctx, solo[0], "Пойман в соло", f"Смерти после {mode.P.lane_minute}:00 вне командных драк",
                        f"{hero} — {deaths_word(len(solo))} вне драк после {mode.P.lane_minute}:00 "
                        f"({', '.join(fmt_time(t) for t in solo[:5])}{'…' if len(solo) > 5 else ''})",
@@ -109,10 +111,17 @@ def fight_episodes(ctx, match) -> list[dict]:
         return []
     part = sum(1 for f in fights if took_part(f, ctx["idx"]))
     ctx["fights"] = {"part": part, "total": len(fights)}
+    pos = ctx.get("positioning") or {}
+    if pos.get("available"):
+        f = pos["fights"]
+        ctx["fights"].update(dead=f["dead"], far=f["far"], near=len(f["near"]))
     if part / len(fights) < 0.4:
+        text = f"{ctx['hero']} — участвовал в {part} из {len(fights)} драк после {mode.P.lane_minute}:00"
+        if pos.get("available"):
+            text += (f"; в пропущенных был мёртв — {f['dead']}, далеко (дальше {FIGHT_NEAR}) — {f['far']}, "
+                     f"рядом — {len(f['near'])}")
         return [_ep(ctx, fights[0]["start"], "Явка на драки", f"Доля командных драк после {mode.P.lane_minute}:00, где игрок участвовал",
-                    f"{ctx['hero']} — участвовал в {part} из {len(fights)} драк после {mode.P.lane_minute}:00", "disputed",
-                    end=fights[-1]["end"])]
+                    text, "disputed", end=fights[-1]["end"])]
     return []
 
 
@@ -247,6 +256,7 @@ def collect(ctxs, match, duration, team_counters=()) -> list[dict]:
         episodes += item_episodes(c, duration)
         episodes += afk_episodes(c)
         episodes += signal_episodes(c, _ep)
+        episodes += positioning_episodes(c, _ep)
         episodes += counter_episodes(c, _ep, duration)
         episodes += skill_episodes(c, _ep)
     episodes += team_episodes(list(team_counters), ctxs, _ep, duration)

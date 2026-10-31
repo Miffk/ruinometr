@@ -5,6 +5,7 @@ from ..constants import Constants, rank_name
 from . import episodes as ep
 from . import counters as counters_mod
 from . import mode
+from . import positioning
 from . import scoring
 from . import turbo as turbo_mod
 from .core import (LANE_OPPONENT_POS, POS_LABELS, assign_positions, fmt_time, lane_result, team_of)
@@ -191,6 +192,7 @@ def build_report(match: dict, consts: Constants, metas: dict[int, dict | None], 
         c["conduct"] = player_conduct(c["rp"], match, c["slot"], duration)
         c["signals"] = player_signals(c, match, parsed, consts) if parsed else {"available": False}
 
+    positioning.analyze(ctxs, match, parsed, duration)
     team_counters = counters_mod.analyze(ctxs, consts, duration)
     episodes = ep.collect(ctxs, match, duration, team_counters)
 
@@ -249,12 +251,17 @@ def build_report(match: dict, consts: Constants, metas: dict[int, dict | None], 
             "signals": c["signals"],
             "counters": c["counters"],
             "skills": c["skills"],
+            "positioning": {k: v for k, v in c["positioning"].items() if k != "deaths"},
         })
 
     map_data = None
     if parsed:
         map_data = build_map(parsed, ctxs, objectives, match, duration)
+        context = {(c["slot"], d["time"]): d for c in ctxs for d in (c["positioning"].get("deaths") or [])}
         for d in map_data["deaths"]:
+            cd = context.get((d["slot"], d["time"]))
+            if cd:
+                d.update({k: cd[k] for k in ("allies_near", "enemies_near", "alone", "vision", "enemy_side")})
             d["killer"] = consts.hero_name_by_npc(d["killer"]) if (d["killer"] or "").startswith("npc_dota_hero_") \
                 else ("крипы/строение" if d["killer"] else None)
 

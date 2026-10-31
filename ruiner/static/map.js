@@ -93,7 +93,9 @@ const RuinerMap = (() => {
     return report.map.deaths.filter((d) => d.time <= t && (st.deaths === "all" || t - d.time <= RECENT_DEATH)).map((d) => {
       const [x, y] = proj(d.x, d.y);
       const recent = t - d.time <= RECENT_DEATH;
-      const title = `${d.time_fmt} — умер ${d.hero}${d.killer ? " (убил " + d.killer + ")" : ""}`;
+      const where = d.allies_near == null ? "" : `\nсвоих рядом: ${d.allies_near}, врагов рядом: ${d.enemies_near}` +
+        (d.enemy_side ? ", на чужой половине" + (d.vision ? ", под нашим обсервером" : ", без нашего обсервера") : "");
+      const title = `${d.time_fmt} — умер ${d.hero}${d.killer ? " (убил " + d.killer + ")" : ""}${where}`;
       return `<g class="death ${d.team}${recent ? " recent" : ""}" transform="translate(${x},${y})"><title>${esc(title)}</title>
         <line x1="-7" y1="-7" x2="7" y2="7"/><line x1="-7" y1="7" x2="7" y2="-7"/></g>`;
     }).join("");

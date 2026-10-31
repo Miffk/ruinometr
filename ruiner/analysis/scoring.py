@@ -3,6 +3,7 @@
 from statistics import median
 
 from . import mode
+from . import positioning
 from .core import CORE_POSITIONS, clamp, fmt_time, plural
 
 # Ожидаемая доля нетворса команды по позициям.
@@ -11,10 +12,12 @@ EXPECTED_NW_SHARE = {1: 0.27, 2: 0.24, 3: 0.21, 4: 0.15, 5: 0.13}
 CORE_WEIGHTS = {
     "gpm": 0.09, "xpm": 0.06, "lh": 0.07, "dmg": 0.12, "tower": 0.05,
     "kp": 0.14, "deaths": 0.14, "lane": 0.14, "nw": 0.09, "items": 0.10, "presence": 0.08, "counter": 0.05, "skills": 0.04,
+    "position": 0.07,
 }
 SUPPORT_WEIGHTS = {
     "kp": 0.18, "deaths": 0.16, "dmg": 0.08, "xpm": 0.07, "lane": 0.12,
     "support": 0.22, "heal": 0.04, "gpm": 0.03, "items": 0.10, "presence": 0.08, "counter": 0.05, "skills": 0.04,
+    "position": 0.06,
 }
 
 LABELS = {
@@ -22,6 +25,7 @@ LABELS = {
     "tower": "Урон по строениям", "heal": "Лечение", "kp": "Участие в убийствах", "deaths": "Смерти",
     "lane": "Линия", "nw": "Доля нетворса", "support": "Работа саппорта", "items": "Закуп vs про",
     "presence": "Присутствие в игре", "counter": "Ответ на пик", "skills": "Прокачка vs про",
+    "position": "Позиционирование",
 }
 
 # Сколько секунд AFK (пока герой жив) обнуляют компонент присутствия.
@@ -101,16 +105,24 @@ def components(ctx: dict, duration: int) -> list[dict]:
         dewards = (p.get("observer_kills") or 0) + (p.get("sentry_kills") or 0)
         stacks = p.get("camps_stacked") or 0
         stuns = p.get("stuns") or 0
-        vision = clamp((obs + sen * 0.5 + dewards + stacks * 0.5) / (minutes * 0.5))
+        # Обсервер, который сразу сняли, стоит меньше прожившего весь срок.
+        wards = (ctx.get("positioning") or {}).get("wards")
+        obs_eff = obs * (0.6 + 0.4 * wards["survival"]) if wards else obs
+        vision = clamp((obs_eff + sen * 0.5 + dewards + stacks * 0.5) / (minutes * 0.5))
         control = clamp(stuns / (minutes * 3))
+        life = f" (живут в среднем {round(wards['survival'] * 100)}% срока)" if wards else ""
         add("support", vision * 0.6 + control * 0.4,
-            f"варды: {obs} обс. и {sen} сентри, снято {dewards}, стаков {stacks}, контроль {stuns:.0f} с")
+            f"варды: {obs} обс.{life} и {sen} сентри, снято {dewards}, стаков {stacks}, контроль {stuns:.0f} с")
 
     conduct = ctx.get("conduct") or {}
     if conduct.get("available"):
         afk = sum(w["seconds"] for w in conduct.get("afk") or [])
         add("presence", 1 - afk / AFK_ZERO_SECONDS,
             f"без приказов (пока жив) {fmt_time(afk)}" if afk else "AFK-отрезков от 90 с нет")
+
+    pos_data = ctx.get("positioning") or {}
+    if pos_data.get("available") and duration > mode.P.lane_end:
+        add("position", positioning.score_value(pos_data, duration), positioning.score_text(pos_data))
 
     personal = ctx.get("counters") or []
     if personal:

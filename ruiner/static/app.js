@@ -272,11 +272,19 @@ function scoreBlock(p) {
   }).join("") : '<div class="muted">Отдельных эпизодов нет — оценка сложилась из цифр слева.</div>';
   const lane = p.lane ? `<div class="fact-line">Линия против <b>${esc(p.lane_opponent)}</b> к 10:00: добивания ${p.lane.lh}/${p.lane.dn ?? 0} против ${p.lane.opp_lh}/${p.lane.opp_dn ?? 0},
     опыт ${p.lane.xp_diff >= 0 ? "+" : ""}${num(p.lane.xp_diff)}${p.lane.gold_diff != null ? `, золото ${p.lane.gold_diff >= 0 ? "+" : ""}${num(p.lane.gold_diff)}` : ""}, смертей ${p.lane.deaths}, убийств ${p.lane.kills}</div>` : "";
-  const fights = p.fights ? `<div class="fact-line">Драки после 10:00: участвовал в ${p.fights.part} из ${p.fights.total}</div>` : "";
+  const lm = `${state.report.mode?.lane_minute ?? 10}:00`;
+  const missed = p.fights && p.fights.dead != null && p.fights.part < p.fights.total
+    ? ` (в пропущенных: мёртв — ${p.fights.dead}, далеко — ${p.fights.far}, рядом — ${p.fights.near})` : "";
+  const fights = p.fights ? `<div class="fact-line">Драки после ${lm}: участвовал в ${p.fights.part} из ${p.fights.total}${missed}</div>` : "";
+  const pos = p.positioning || {};
+  const deaths = pos.available && pos.alone + pos.in_fight > 0 ? `<div class="fact-line">Смерти после ${lm}: в драке или рядом со своими — ${pos.in_fight},
+    в одиночку — ${pos.alone}${pos.risky ? ` (из них на чужой половине без нашего варда — ${pos.risky})` : ""}</div>` : "";
+  const w = pos.wards;
+  const wards = w ? `<div class="fact-line">Обсерверы: ${w.placed}, в среднем прожили ${Math.round(w.survival * 100)}% срока${w.quick ? `, сняты быстрее 1,5 мин — ${w.quick}` : ""}</div>` : "";
   return `<div class="cols">
     <div><div class="h3">Из чего сложился вклад</div>${comps}</div>
     <div><div class="h3">Почему «${esc(p.verdict_label)}»</div><div class="fact-line">${esc(verdictWhy(p))}</div>${reasons}
-      <div class="h3" style="margin-top:16px">Стадии</div>${lane}${fights}
+      <div class="h3" style="margin-top:16px">Стадии</div>${lane}${fights}${deaths}${wards}
       <div class="fact-line">Мёртв ${p.dead_fmt} (${p.dead_pct}% матча) · участие в убийствах ${p.kp}% · ${p.nw_share}% нетворса команды · ${p.dmg_share}% урона команды</div></div>
   </div>`;
 }
